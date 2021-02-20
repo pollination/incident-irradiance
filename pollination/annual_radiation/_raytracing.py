@@ -75,7 +75,7 @@ class AnnualRadiationRayTracing(DAG):
         sensor_count='{{item.count}}', modifiers=sun_modifiers,
         sensor_grid=split_grid._outputs.output_folder,
         conversion='0.265 0.670 0.065',
-        output_type='a',  # make it ascii so we can expose the file as a separate output
+        output_format='a',  # make it ascii so we can expose the file as a separate output
         scene_file=octree_file_with_suns
             ):
         return [

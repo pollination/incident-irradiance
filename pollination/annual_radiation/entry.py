@@ -23,7 +23,7 @@ class AnnualRadiationEntryPoint(DAG):
     north = Inputs.float(
         default=0,
         description='A number for rotation from north.',
-        spec={'type': 'number', 'minimum': 0, 'maximum': 360},
+        spec={'type': 'number', 'minimum': -360, 'maximum': 360},
         alias=north_input
     )
 
@@ -36,6 +36,11 @@ class AnnualRadiationEntryPoint(DAG):
     radiance_parameters = Inputs.str(
         description='Radiance parameters for ray tracing.',
         default='-ab 2 -ad 5000 -lw 2e-05'
+    )
+
+    sensor_grid = Inputs.str(
+        description='A grid name or a pattern to filter the sensor grids. By default '
+        'all the grids in HBJSON model will be exported.', default='*'
     )
 
     model = Inputs.file(
@@ -62,7 +67,7 @@ class AnnualRadiationEntryPoint(DAG):
         ]
 
     @task(template=CreateRadianceFolder)
-    def create_rad_folder(self, input_model=model):
+    def create_rad_folder(self, input_model=model, sensor_grid=sensor_grid):
         """Translate the input model to a radiance folder."""
         return [
             {'from': CreateRadianceFolder()._outputs.model_folder, 'to': 'model'},
@@ -114,7 +119,8 @@ class AnnualRadiationEntryPoint(DAG):
 
     @task(template=CreateSkyMatrix)
     def create_indirect_sky(
-        self, north=north, wea=wea, sky_component='-s', output_type=1
+        self, north=north, wea=wea, sky_type='no-sun', output_type='solar',
+        output_format='ASCII', sun_up_hours='sun-up-hours'
     ):
         return [
             {
@@ -144,7 +150,7 @@ class AnnualRadiationEntryPoint(DAG):
         ],
         loop=create_rad_folder._outputs.sensor_grids,
         sub_folder='initial_results/{{item.name}}',  # create a subfolder for each grid
-        sub_paths={'sensor_grid': 'grid/{{item.name}}.pts'}  # sub_path for sensor_grid arg
+        sub_paths={'sensor_grid': 'grid/{{item.full_id}}.pts'}  # sub_path for sensor_grid arg
     )
     def annual_radiation_raytracing(
         self,
@@ -152,7 +158,7 @@ class AnnualRadiationEntryPoint(DAG):
         radiance_parameters=radiance_parameters,
         octree_file_with_suns=create_octree_with_suns._outputs.scene_file,
         octree_file=create_octree._outputs.scene_file,
-        grid_name='{{item.name}}',
+        grid_name='{{item.full_id}}',
         sensor_grid=create_rad_folder._outputs.model_folder,
         sky_dome=create_sky_dome._outputs.sky_dome,
         sky_matrix_indirect=create_indirect_sky._outputs.sky_matrix,

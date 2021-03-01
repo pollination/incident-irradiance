@@ -141,9 +141,14 @@ class AnnualRadiationEntryPoint(DAG):
             {
                 'from': ParseSunUpHours()._outputs.sun_up_hours,
                 'to': 'results/total/sun-up-hours.txt'
-            },
+            }
+        ]
+
+    @task(template=Copy, needs=[parse_sun_up_hours])
+    def copy_sun_up_hours(self, src=parse_sun_up_hours._outputs.sun_up_hours):
+        return [
             {
-                'from': ParseSunUpHours()._outputs.sun_up_hours,
+                'from': Copy()._outputs.dst,
                 'to': 'results/direct/sun-up-hours.txt'
             }
         ]

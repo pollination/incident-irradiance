@@ -4,6 +4,7 @@ from pollination.honeybee_radiance.sun import CreateSunMatrix, ParseSunUpHours
 from pollination.honeybee_radiance.translate import CreateRadianceFolder
 from pollination.honeybee_radiance.octree import CreateOctree, CreateOctreeWithSky
 from pollination.honeybee_radiance.sky import CreateSkyDome, CreateSkyMatrix
+from pollination.path.copy import Copy
 
 
 # input/output alias
@@ -76,12 +77,17 @@ class AnnualRadiationEntryPoint(DAG):
                 'to': 'results/direct/grids_info.json'
             },
             {
-                'from': CreateRadianceFolder()._outputs.sensor_grids_file,
-                'to': 'results/total/grids_info.json'
-            },
-            {
                 'from': CreateRadianceFolder()._outputs.sensor_grids,
                 'description': 'Sensor grids information.'
+            }
+        ]
+
+    @task(template=Copy, needs=[create_rad_folder])
+    def copy_grid_info(self, src=create_rad_folder._outputs.sensor_grids_file):
+        return [
+            {
+                'from': Copy()._outputs.dst,
+                'to': 'results/total/grids_info.json'
             }
         ]
 

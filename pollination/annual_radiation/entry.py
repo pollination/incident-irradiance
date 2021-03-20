@@ -11,7 +11,10 @@ from pollination.path.copy import Copy
 from pollination.alias.inputs.model import hbjson_model_input
 from pollination.alias.inputs.wea import wea_input
 from pollination.alias.inputs.north import north_input
-from pollination.alias.outputs.daylight import sort_annual_daylight_results
+from pollination.alias.inputs.radiancepar import rad_par_annual_input
+from pollination.alias.inputs.grid import sensor_count_input, grid_filter_input
+from pollination.alias.outputs.daylight import total_radiation_results, \
+    direct_radiation_results
 
 from ._raytracing import AnnualRadiationRayTracing
 
@@ -31,17 +34,23 @@ class AnnualRadiationEntryPoint(DAG):
     sensor_count = Inputs.int(
         default=200,
         description='The maximum number of grid points per parallel execution.',
-        spec={'type': 'integer', 'minimum': 1}
+        spec={'type': 'integer', 'minimum': 1},
+        alias=sensor_count_input
     )
 
     radiance_parameters = Inputs.str(
         description='Radiance parameters for ray tracing.',
-        default='-ab 2 -ad 5000 -lw 2e-05'
+        default='-ab 2 -ad 5000 -lw 2e-05',
+        alias=rad_par_annual_input
     )
 
-    sensor_grid = Inputs.str(
-        description='A grid name or a pattern to filter the sensor grids. By default '
-        'all the grids in HBJSON model will be exported.', default='*'
+    grid_filter = Inputs.str(
+        description='Text for a grid identifer or a pattern to filter the sensor grids '
+        'of the model that are simulated. For instance, first_floor_* will simulate '
+        'only the sensor grids that have an identifier that starts with '
+        'first_floor_. By default, all grids in the model will be simulated.',
+        default='*',
+        alias=grid_filter_input
     )
 
     model = Inputs.file(
@@ -68,7 +77,7 @@ class AnnualRadiationEntryPoint(DAG):
         ]
 
     @task(template=CreateRadianceFolder)
-    def create_rad_folder(self, input_model=model, sensor_grid=sensor_grid):
+    def create_rad_folder(self, input_model=model, sensor_grid=grid_filter):
         """Translate the input model to a radiance folder."""
         return [
             {'from': CreateRadianceFolder()._outputs.model_folder, 'to': 'model'},
@@ -179,11 +188,13 @@ class AnnualRadiationEntryPoint(DAG):
         pass
 
     total_radiation = Outputs.folder(
-        source='results/total',
-        alias=sort_annual_daylight_results
+        source='results/total', description='Folder with raw result files (.ill) that '
+        'contain matrices of total irradiance.',
+        alias=total_radiation_results
     )
 
     direct_radiation = Outputs.folder(
-        source='results/direct',
-        alias=sort_annual_daylight_results
+        source='results/direct', description='Folder with raw result files (.ill) that '
+        'contain matrices of direct irradiance.',
+        alias=direct_radiation_results
     )

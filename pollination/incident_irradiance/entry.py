@@ -16,12 +16,12 @@ from pollination.alias.inputs.grid import sensor_count_input, grid_filter_input
 from pollination.alias.outputs.daylight import total_radiation_results, \
     direct_radiation_results
 
-from ._raytracing import AnnualRadiationRayTracing
+from ._raytracing import IncidentIrradianceRayTracing
 
 
 @dataclass
-class AnnualRadiationEntryPoint(DAG):
-    """Annual radiation entry point."""
+class IncidentIrradianceEntryPoint(DAG):
+    """Incident irradiance entry point."""
 
     # inputs
     north = Inputs.float(
@@ -40,8 +40,7 @@ class AnnualRadiationEntryPoint(DAG):
 
     radiance_parameters = Inputs.str(
         description='Radiance parameters for ray tracing.',
-        default='-ab 2 -ad 5000 -lw 2e-05',
-        alias=rad_par_annual_input
+        default='-ab 1 -ad 5000 -lw 2e-05'
     )
 
     grid_filter = Inputs.str(
@@ -80,7 +79,14 @@ class AnnualRadiationEntryPoint(DAG):
     def create_rad_folder(self, input_model=model, grid_filter=grid_filter):
         """Translate the input model to a radiance folder."""
         return [
-            {'from': CreateRadianceFolderGrid()._outputs.model_folder, 'to': 'model'},
+            {
+                'from': CreateRadianceFolderGrid()._outputs.model_folder,
+                'to': 'model'
+            },
+            {
+                'from': CreateRadianceFolderGrid()._outputs.bsdf_folder,
+                'to': 'model/bsdf'
+            },
             {
                 'from': CreateRadianceFolderGrid()._outputs.sensor_grids_file,
                 'to': 'results/direct/grids_info.json'
@@ -163,7 +169,7 @@ class AnnualRadiationEntryPoint(DAG):
         ]
 
     @task(
-        template=AnnualRadiationRayTracing,
+        template=IncidentIrradianceRayTracing,
         needs=[
             create_sky_dome, create_octree_with_suns, create_octree, generate_sunpath,
             create_indirect_sky, create_rad_folder
@@ -172,7 +178,7 @@ class AnnualRadiationEntryPoint(DAG):
         sub_folder='initial_results/{{item.name}}',  # create a subfolder for each grid
         sub_paths={'sensor_grid': 'grid/{{item.full_id}}.pts'}  # sub_path for sensor_grid arg
     )
-    def annual_radiation_raytracing(
+    def incident_irradiance_raytracing(
         self,
         sensor_count=sensor_count,
         radiance_parameters=radiance_parameters,
@@ -183,7 +189,8 @@ class AnnualRadiationEntryPoint(DAG):
         sky_dome=create_sky_dome._outputs.sky_dome,
         sky_matrix_indirect=create_indirect_sky._outputs.sky_matrix,
         sunpath=generate_sunpath._outputs.sunpath,
-        sun_modifiers=generate_sunpath._outputs.sun_modifiers
+        sun_modifiers=generate_sunpath._outputs.sun_modifiers,
+        bsdfs=create_rad_folder._outputs.bsdf_folder
     ):
         pass
 
